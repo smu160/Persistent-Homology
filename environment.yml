@@ -1,0 +1,7 @@
+name: math_seminar_proj
+channels:
+  - defaults
+dependencies:
+  - pyqtgraph=0.10.0
+  - python=3.7.1
+

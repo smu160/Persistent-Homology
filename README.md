@@ -4,15 +4,15 @@
 
 ### Prerequisites
 
-1. [Anaconda](https://docs.anaconda.com/anaconda/install/)
+[Anaconda](https://docs.anaconda.com/anaconda/install/)
 
 ### Installing
 
-1.
 ```Bash
 git clone https://github.com/smu160/Persistent_Homology.git
 cd Persistent_Homology
 conda env create -f environment.yml
+source activate persistent_homology
 python main.py
 ```
 

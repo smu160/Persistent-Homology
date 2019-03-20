@@ -1,7 +1,7 @@
-name: math_seminar_proj
+name: persistent_homology
 channels:
   - defaults
 dependencies:
   - pyqtgraph=0.10.0
   - python=3.7.1
-
+  - numpy=1.16.2

@@ -10,12 +10,14 @@ __email__ = "sy2685@columbia.edu"
 
 import sys
 import itertools
+import multiprocessing
 
-from PyQt5 import QtCore
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QApplication, QHBoxLayout, QLabel, QSizePolicy, QSlider, QSpacerItem, QVBoxLayout, QWidget
 import pyqtgraph as pg
 import numpy as np
+
+from topology import VietorisRipsComplex, nodes_touching
 
 
 class Slider(QWidget):
@@ -47,30 +49,6 @@ class Slider(QWidget):
         self.label.setText("epsilon: {}".format(round(value * 0.1, 1)))
 
 
-class Graph:
-    """A graph theory style graph to represent data points"""
-
-    def __init__(self, nodes, edges, positions):
-        self.nodes = {tuple(pos): node for node, pos in zip(nodes, positions)}
-        self.edges = edges
-
-    def add_edge(self, node_x, node_y):
-        """Adds an edge between two given nodes in the graph
-        """
-        self.edges.add((node_x, node_y))
-
-    def remove_edge(self, node_x, node_y):
-        """Adds an edge between two given nodes in the graph
-        """
-        self.edges.discard((node_x, node_y))
-
-    # TODO: Write in C and call it with ctypes
-    def nodes_touching(self, x1, y1, x2, y2, r1, r2):
-        """Checks if two nodes touch or intersect one another
-        """
-        return (r1 - r2)**2 <= (x1 - x2)**2 + (y1 - y2)**2 <= (r1 + r2)**2
-
-
 class Widget(QWidget):
 
     def __init__(self, parent=None):
@@ -88,26 +66,27 @@ class Widget(QWidget):
         self.vertical_layout.addWidget(self.w1)
 
         # The nodes of our graph (the set of data points)
-        nodes = [node for node in range(20)]
+        # nodes = [node for node in range(20)]
 
-        edges = set() # [[np.random.randint(0, 10), np.random.randint(0, 10)] for _ in range(40)]
         positions = [[np.random.randint(0, 50), np.random.randint(0, 50)] for _ in range(20)]
 
-        self.graph = Graph(nodes, edges, positions)
+        self.v_rips_complex = VietorisRipsComplex(positions, 1)
 
         self.line_pen = pg.mkPen('g', width=3)
-        self.node_brushes = [pg.mkBrush('r') for _ in positions]
+        self.node_brushes = [pg.mkBrush('b') for _ in positions]
         self.perim_nodes = [pg.mkBrush(color=(255, 165, 0, 40)) for _ in positions]
         self.brushes = self.node_brushes + self.perim_nodes
         self.node_sizes = [0.5 for _ in positions]
 
         # Define the symbol to use for each node (this is optional)
-        self.symbols = ['o' for _, _ in self.graph.nodes.items()]
+        self.symbols = ['o'] * len(self.v_rips_complex.network.nodes)
 
+        self.pool = multiprocessing.Pool(processes=4)
         self.update_graph(1)
 
         self.w1.slider.valueChanged.connect(self.update_graph)
 
+    # TODO: fix leftover edges bug AND performance issues!
     def update_graph(self, value):
         """Update the graph when the value of the slider changes
 
@@ -116,35 +95,37 @@ class Widget(QWidget):
                 The slider value/position that represents the diameter of the
                 perimeter nodes.
         """
-        pos = list(self.graph.nodes.keys())
+        pos = list(self.v_rips_complex.pos_to_node.keys())
 
         perim_node_sizes = [value * 0.1] * len(pos)
         sizes = self.node_sizes + perim_node_sizes
 
         radius = (value * 0.1) * 0.5
         for node1, node2 in itertools.combinations(pos, 2):
-            x1 = node1[0]
-            x2 = node2[0]
-            y1 = node1[1]
-            y2 = node2[1]
-            if self.graph.nodes_touching(x1, y1, x2, y2, radius, radius):
-                self.graph.add_edge(self.graph.nodes[node1], self.graph.nodes[node2])
-                # print("{}, {} are touching".format(node1, node2), file=sys.stderr)
-            else:
-                # print("{}, {} are NOT touching".format(node1, node2), file=sys.stderr)
-                self.graph.remove_edge(self.graph.nodes[node1], self.graph.nodes[node2])
+            n1 = self.v_rips_complex.pos_to_node[node1]
+            n2 = self.v_rips_complex.pos_to_node[node2]
 
-        pos = np.array(pos*2)
+            if nodes_touching(*node1, *node2, radius, radius):
+                self.v_rips_complex.network.add_edge(n1, n2)
+                # print("{}, {} are touching".format(node1, node2), file=sys.stderr)
+            elif self.v_rips_complex.network.has_edge(n1, n2):
+                self.v_rips_complex.network.remove_edge(n1, n2)
+                # print("{}, {} are NOT touching".format(node1, node2), file=sys.stderr)
+
+        self.v_rips_complex.update_simplices()
+        pos = np.array(pos * 2)
 
         # Update the graph
-        if self.graph.edges:
-            adj = [list(edge) for edge in self.graph.edges]
-            adj = np.array(adj)
+        if self.v_rips_complex.network.edges:
+            adj = np.array([list(edge) for edge in self.v_rips_complex.network.edges])
             self.graph_item.setData(pos=pos, adj=adj, pen=self.line_pen, size=sizes, symbol=self.symbols*2, pxMode=False, symbolBrush=self.brushes)
         else:
             self.graph_item.setData(pos=pos, pen=self.line_pen, size=sizes, symbol=self.symbols*2, pxMode=False, symbolBrush=self.brushes)
 
-        # print(self.graph.edges)
+        # Compute
+        betti_nums = self.pool.map(self.v_rips_complex.betti_number, range(3))
+        print(betti_nums, file=sys.stderr)
+
 
 if __name__ == '__main__':
     pg.setConfigOption('background', 'w')

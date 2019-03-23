@@ -1,5 +1,10 @@
 """
 Here be dragons.
+
+The SimplicialComplex class and the VietorisRipsComplex class are both heavily
+based on code from the following source:
+
+https://datawarrior.wordpress.com/2015/09/14/tda-2-constructing-connectivities/
 """
 
 __author__ = "Saveliy Yusufov, Helen Jin"
@@ -25,18 +30,18 @@ class SimplicialComplex:
         self.simplices = [tuple(sorted(simplex)) for simplex in simplices]
         self.face_set = self.faces()
 
+    # FIXME: this is ugly and inefficient
     def faces(self):
         faceset = set()
-
         for simplex in self.simplices:
-            numnodes = len(simplex)
-            for i in range(numnodes, 0, -1):
+            for i in range(len(simplex), 0, -1):
                 for face in combinations(simplex, i):
                     faceset.add(face)
+
         return faceset
 
     def n_faces(self, n):
-        return list(filter(lambda face: len(face) == n+1, self.face_set))
+        return [face for face in self.face_set if len(face) == n+1]
 
     def boundary_operator(self, i):
         source_simplices = self.n_faces(i)
@@ -81,15 +86,24 @@ class SimplicialComplex:
 
 class VietorisRipsComplex(SimplicialComplex):
 
-    def __init__(self, positions, epsilon):
+    def __init__(self, positions):
         super(VietorisRipsComplex, self).__init__(positions)
 
-        self.epsilon = epsilon
         self.pos_to_node = {tuple(pos): node for node, pos in enumerate(positions)}
         self.network = self.construct_network(positions)
         self.update_simplices()
 
     def construct_network(self, positions):
+        """Builds a NetworkX graph from datapoint positions
+
+        Args:
+            positions: list
+                A list of 2-tuples, where each 2-tuple represents a datapoint.
+
+        Returns:
+            graph: NetworkX Graph
+                A graph of isolate nodes representing the datapoint positions.
+        """
         graph = nx.Graph()
         nodes = [node for node, _ in enumerate(positions)]
         graph.add_nodes_from(nodes)
@@ -105,7 +119,7 @@ class VietorisRipsComplex(SimplicialComplex):
         """
         self.network.remove_edge(node_x, node_y)
 
-    # TODO: find a way to optimize find_cliques
+    # TODO: figure out whether we need maximal cliques or all cliques
     def update_simplices(self):
         self.import_simplices(nx.find_cliques(self.network))
 

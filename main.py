@@ -12,13 +12,16 @@ import sys
 import itertools
 import multiprocessing
 
-from PyQt5.QtCore import Qt
+from PyQt5 import QtCore
 from PyQt5.QtWidgets import QApplication, QHBoxLayout, QLabel, QSizePolicy, QSlider, QSpacerItem, QVBoxLayout, QWidget
 import pyqtgraph as pg
 import numpy as np
 
 from topology import VietorisRipsComplex, nodes_touching
 
+
+class Communicate(QtCore.QObject):
+    update_simplices = QtCore.pyqtSignal()
 
 class Slider(QWidget):
 
@@ -33,8 +36,8 @@ class Slider(QWidget):
         self.horizontalLayout.addItem(spacerItem)
 
         self.slider = QSlider(self)
-        self.slider.setOrientation(Qt.Horizontal)
-        self.slider.setMaximum(500)
+        self.slider.setOrientation(QtCore.Qt.Horizontal)
+        self.slider.setMaximum(200)
 
         self.horizontalLayout.addWidget(self.slider)
         spacerItem1 = QSpacerItem(0, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
@@ -51,7 +54,7 @@ class Slider(QWidget):
 
 class Widget(QWidget):
 
-    def __init__(self, parent=None):
+    def __init__(self, positions, parent=None):
         super(Widget, self).__init__(parent=parent)
         self.vertical_layout = QVBoxLayout(self)
 
@@ -65,12 +68,7 @@ class Widget(QWidget):
         self.w1 = Slider()
         self.vertical_layout.addWidget(self.w1)
 
-        # The nodes of our graph (the set of data points)
-        # nodes = [node for node in range(20)]
-
-        positions = [[np.random.randint(0, 50), np.random.randint(0, 50)] for _ in range(20)]
-
-        self.v_rips_complex = VietorisRipsComplex(positions, 1)
+        self.v_rips_complex = VietorisRipsComplex(positions)
 
         self.line_pen = pg.mkPen('g', width=3)
         self.node_brushes = [pg.mkBrush('b') for _ in positions]
@@ -81,10 +79,15 @@ class Widget(QWidget):
         # Define the symbol to use for each node (this is optional)
         self.symbols = ['o'] * len(self.v_rips_complex.network.nodes)
 
-        self.pool = multiprocessing.Pool(processes=4)
+        self.communicate = Communicate()
+        self.communicate.update_simplices.connect(self.update_simplices)
+        self.w1.slider.valueChanged.connect(self.update_graph)
+
+        self.pool = multiprocessing.Pool(processes=3)
         self.update_graph(1)
 
-        self.w1.slider.valueChanged.connect(self.update_graph)
+    def update_simplices(self):
+        self.v_rips_complex.update_simplices()
 
     # TODO: fix leftover edges bug AND performance issues!
     def update_graph(self, value):
@@ -101,18 +104,18 @@ class Widget(QWidget):
         sizes = self.node_sizes + perim_node_sizes
 
         radius = (value * 0.1) * 0.5
-        for node1, node2 in itertools.combinations(pos, 2):
-            n1 = self.v_rips_complex.pos_to_node[node1]
-            n2 = self.v_rips_complex.pos_to_node[node2]
+        for pos1, pos2 in itertools.combinations(pos, 2):
+            node1 = self.v_rips_complex.pos_to_node[pos1]
+            node2 = self.v_rips_complex.pos_to_node[pos2]
 
-            if nodes_touching(*node1, *node2, radius, radius):
-                self.v_rips_complex.network.add_edge(n1, n2)
+            if nodes_touching(*pos1, *pos2, radius, radius):
+                self.v_rips_complex.network.add_edge(node1, node2)
                 # print("{}, {} are touching".format(node1, node2), file=sys.stderr)
-            elif self.v_rips_complex.network.has_edge(n1, n2):
-                self.v_rips_complex.network.remove_edge(n1, n2)
+            elif self.v_rips_complex.network.has_edge(node1, node2):
+                self.v_rips_complex.network.remove_edge(node1, node2)
                 # print("{}, {} are NOT touching".format(node1, node2), file=sys.stderr)
 
-        self.v_rips_complex.update_simplices()
+        self.communicate.update_simplices.emit()
         pos = np.array(pos * 2)
 
         # Update the graph
@@ -122,15 +125,49 @@ class Widget(QWidget):
         else:
             self.graph_item.setData(pos=pos, pen=self.line_pen, size=sizes, symbol=self.symbols*2, pxMode=False, symbolBrush=self.brushes)
 
-        # Compute
         betti_nums = self.pool.map(self.v_rips_complex.betti_number, range(3))
         print(betti_nums, file=sys.stderr)
 
 
-if __name__ == '__main__':
-    pg.setConfigOption('background', 'w')
-    pg.setConfigOption('foreground', 'k')
+def points_on_circle(radius, size=10):
+    """Draws random points from the circumference of a circle
+
+    NOTE: If duplicate points are generated, they will not be included.
+
+    Args:
+        radius: int
+            The radius of the circle of interest.
+
+        size: int, optional, default: 10
+            The amount of points to randomly draw from the circle.
+            NOTE: the length of the generated set of points may be less than
+            size since duplicates are not allowed in sets.
+
+    Returns:
+        points: set
+            A set of points on a circle of the given radius.
+    """
+    angles = [np.random.uniform(0, 2*np.pi) for _ in range(size)]
+    points = {(round(radius * np.cos(theta)), round(radius * np.sin(theta))) for theta in angles}
+    return points
+
+
+def main():
+    """Starts the GUI with some test datapoints"""
+    pg.setConfigOption("background", 'w')
+    pg.setConfigOption("foreground", 'k')
     app = QApplication(sys.argv)
-    w = Widget()
+
+    # Test data
+    datapoints = points_on_circle(10, size=15)
+    n = len(datapoints)
+    print("amount of points generated: {}".format(n), file=sys.stderr)
+    # datapoints = [[np.random.randint(0, 50), np.random.randint(0, 50)] for _ in range(10)]
+
+    w = Widget(datapoints)
     w.show()
     sys.exit(app.exec_())
+
+
+if __name__ == '__main__':
+    main()

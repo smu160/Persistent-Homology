@@ -1,4 +1,6 @@
-# Persistent_Homology
+# Persistent-Homology
+
+<img src="https://media.giphy.com/media/lz65baGz2kkhx67p14/giphy.gif"/>
 
 ## Getting Started
 

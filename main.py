@@ -12,16 +12,18 @@ import sys
 import itertools
 import multiprocessing
 
-from PyQt5 import QtCore
+from PyQt5 import QtCore, QtGui
 from PyQt5.QtWidgets import QApplication, QHBoxLayout, QLabel, QSizePolicy, QSlider, QSpacerItem, QVBoxLayout, QWidget
 import pyqtgraph as pg
 import numpy as np
 
-from topology import VietorisRipsComplex, nodes_touching
+from topology import VietorisRipsComplex
+from nodes import nodes_touching
 
 
 class Communicate(QtCore.QObject):
     update_simplices = QtCore.pyqtSignal()
+
 
 class Slider(QWidget):
 
@@ -56,6 +58,10 @@ class Widget(QWidget):
 
     def __init__(self, positions, parent=None):
         super(Widget, self).__init__(parent=parent)
+        p = self.palette()
+        p.setColor(self.backgroundRole(), QtGui.QColor(80, 80, 80))
+        self.setPalette(p)
+
         self.vertical_layout = QVBoxLayout(self)
 
         self.win = pg.GraphicsWindow()
@@ -74,7 +80,7 @@ class Widget(QWidget):
         self.node_brushes = [pg.mkBrush('b') for _ in positions]
         self.perim_nodes = [pg.mkBrush(color=(255, 165, 0, 40)) for _ in positions]
         self.brushes = self.node_brushes + self.perim_nodes
-        self.node_sizes = [0.5 for _ in positions]
+        self.node_sizes = [0.2 for _ in positions]
 
         # Define the symbol to use for each node (this is optional)
         self.symbols = ['o'] * len(self.v_rips_complex.network.nodes)
@@ -83,7 +89,7 @@ class Widget(QWidget):
         self.communicate.update_simplices.connect(self.update_simplices)
         self.w1.slider.valueChanged.connect(self.update_graph)
 
-        self.pool = multiprocessing.Pool(processes=3)
+        # self.pool = multiprocessing.Pool(processes=3)
         self.update_graph(1)
 
     def update_simplices(self):
@@ -125,7 +131,8 @@ class Widget(QWidget):
         else:
             self.graph_item.setData(pos=pos, pen=self.line_pen, size=sizes, symbol=self.symbols*2, pxMode=False, symbolBrush=self.brushes)
 
-        betti_nums = self.pool.map(self.v_rips_complex.betti_number, range(3))
+        # betti_nums = self.pool.map(self.v_rips_complex.betti_number, range(3))
+        betti_nums = [self.v_rips_complex.betti_number(i) for i in range(3)]
         print(betti_nums, file=sys.stderr)
 
 
@@ -156,14 +163,13 @@ def main():
     """Starts the GUI with some test datapoints"""
     pg.setConfigOption("background", 'w')
     pg.setConfigOption("foreground", 'k')
-    app = QApplication(sys.argv)
 
-    # Test data
+    # Generate datapoints
     datapoints = points_on_circle(10, size=15)
-    n = len(datapoints)
-    print("amount of points generated: {}".format(n), file=sys.stderr)
+    print("amount of points generated: {}".format(len(datapoints)), file=sys.stderr)
     # datapoints = [[np.random.randint(0, 50), np.random.randint(0, 50)] for _ in range(10)]
 
+    app = QApplication(sys.argv)
     w = Widget(datapoints)
     w.show()
     sys.exit(app.exec_())

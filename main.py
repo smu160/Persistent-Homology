@@ -38,7 +38,7 @@ class Slider(QWidget):
 
         self.slider = QSlider(self)
         self.slider.setOrientation(QtCore.Qt.Horizontal)
-        self.slider.setMaximum(200)
+        self.slider.setMaximum(500)
 
         self.horizontalLayout.addWidget(self.slider)
         spacerItem1 = QSpacerItem(0, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
@@ -134,6 +134,76 @@ class Widget(QWidget):
         print(betti_nums, file=sys.stderr)
 
 
+def pair(x, y):
+    r"""Uniquely encode two natural numbers into a single natural number
+    The Cantor pairing function is a primitive recursive pairing function
+    \pi: \mathbb{N} \times \mathbb{N} \rightarrow \mathbb(N)
+    defined by:
+    \pi(x, y) := \frac{1}{2}(x + y)(x + y + 1) + y
+    Source: https://en.wikipedia.org/wiki/Pairing_function#Cantor_pairing_function
+    Args:
+        x: int
+            One of the natural numbers to encode into a single natural number.
+        y: int
+            One of the natural numbers to encode into a single natural number.
+    Returns:
+        z: int
+            The single natural number uniquely encoded from the the provided
+            natural numbers, x and y.
+    """
+    if not isinstance(x, int) or not isinstance(y, int):
+        raise TypeError("x and y must be members of the natural numbers!")
+    if x < 0 or y < 0:
+        raise ValueError("x and y cannot be less than 0!")
+
+    z = (((x + y + 1) * (x + y)) / 2) + y
+    return z
+
+
+def invert(z):
+    """Invert z into a unique pair of values in the natural numbers
+    Source: https://en.wikipedia.org/wiki/Pairing_function#Cantor_pairing_function
+    Args:
+        z: int
+            A natural number that is comprised of two unique natural numbers.
+    Returns:
+        x, y: tuple
+            The two unique natural numbers, x, y, that comprise the unqique
+            encoding of z.
+    """
+    if not isinstance(z, int):
+        raise TypeError("z must be a member of the natural numbers!")
+    if z < 0:
+        raise ValueError("z cannot be less than 0!")
+
+    w = math.floor(((math.sqrt(8*z + 1) - 1) / 2))
+    t = (w**2 + w) / 2
+    y = z - t
+    x = w - y
+    return x, y
+
+
+def apply_cantor_pairing(x_coords, y_coords):
+    """Reduce dimensionality from 2d to 1d.
+    Args:
+        x_coords: list
+            A list of natural numbers, such that the value at each index,
+            corresponds to the value at each index in y_coords.
+        y:coords: list
+            A list of natural numbers, such that the value at each index,
+            corresponds to the value at each index in x_coords.
+    Returns:
+        z_coords: list
+            The resulting list from applying the cantor pairing function to each
+            corresponding pair of natural numbers, i.e., (x_i, y_i).
+    """
+    if len(x_coords) != len(y_coords):
+        raise ValueError("x_coords and y_coords must be of equal length!")
+
+    z_coords = [pair(x, y) for x, y in zip(x_coords, y_coords)]
+    return z_coords
+
+
 def points_on_circle(radius, size=10):
     """Draws random points from the circumference of a circle
 
@@ -158,6 +228,56 @@ def points_on_circle(radius, size=10):
     points = {(round(radius * np.cos(theta)), round(radius * np.sin(theta))) for theta in angles}
     return points
 
+def points_on_torus(radius, tube_radius, size=10):
+    """Draws random points from the circumferences of the two circles of a torus
+
+    xyz=(c+acosθ)cosϕ=(c+acosθ)sinϕ=asinθ
+
+    NOTE: If duplicate points are generated, they will not be included.
+
+    Parameters
+    ----------
+    radius: int
+        The radius of the first circle of the torus of interest.
+
+    tube_radius: int
+        The radius of the second circle (tube) of the torus of interest.
+
+    size: int, optional, default: 10
+        The amount of points to randomly draw from the circle.
+        NOTE: the length of the generated set of points may be less than
+        size since duplicates are not allowed in sets.
+
+    Returns
+    -------
+    points: set
+        A set of points on a torus of the given radii
+    """
+    angles1 = [np.random.uniform(0, 2*np.pi) for _ in range(size)]
+    angles2 = [np.random.uniform(0, 2*np.pi) for _ in range(size)]
+    
+    points_x = [round((tube_radius + radius * np.cos(theta)) * np.cos(phi)) 
+                for theta, phi in zip(angles1, angles2)]
+    points_x = [int(x + abs(min(points_x))) for x in points_x]
+    print(points_x)
+    points_y = [round((tube_radius + radius * np.cos(theta)) * np.sin(phi))
+                for theta, phi in zip(angles1, angles2)]
+    points_y = [int(y + abs(min(points_y))) for y in points_y]
+    print(points_y)
+    
+    points_new_x = apply_cantor_pairing(points_x, points_y)
+
+#    points = {(x, round(radius * np.sin(theta))) for x, theta in zip(points_new_x, angles1)} 
+    
+    points_z = [round(radius * np.sin(theta)) for theta in angles1]
+    points_z = [int(z + abs(min(points_z))) for z in points_z]
+
+    points_new_y = apply_cantor_pairing(points_y, points_z)
+
+    points = {(x,y) for x,y in zip(points_new_x, points_new_y)}
+
+    return points
+
 
 def main():
     """Starts the GUI with some test datapoints"""
@@ -165,7 +285,8 @@ def main():
     pg.setConfigOption("foreground", 'k')
 
     # Generate datapoints
-    datapoints = points_on_circle(10, size=15)
+    #datapoints = points_on_circle(10, size=15)
+    datapoints = points_on_torus(10, 5, size=100)
     print("amount of points generated: {}".format(len(datapoints)), file=sys.stderr)
     # datapoints = [[np.random.randint(0, 50), np.random.randint(0, 50)] for _ in range(10)]
 

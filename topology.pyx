@@ -1,10 +1,5 @@
 """
 Here be dragons.
-
-The SimplicialComplex class and the VietorisRipsComplex class are both heavily
-based on code from the following source:
-
-https://datawarrior.wordpress.com/2015/09/14/tda-2-constructing-connectivities/
 """
 
 __author__ = "Saveliy Yusufov, Helen Jin"
@@ -28,68 +23,109 @@ class SimplicialComplex:
 
     def import_simplices(self, simplices=[]):
         self.simplices = [tuple(sorted(simplex)) for simplex in simplices]
-        self.face_set = self.faces()
+        self.simplex_set = self.faces()
 
     # FIXME: this is ugly and inefficient
     def faces(self):
         cdef int i
-        cdef int num_of_nodes
+        cdef int num_nodes
         cdef int simplices_len = len(self.simplices)
 
-        faceset = set()
+        simplices = set()
 
         for i in range(simplices_len):
-            num_of_nodes = len(self.simplices[i])
-            while num_of_nodes >= 0:
-                for face in combinations(self.simplices[i], num_of_nodes):
-                    faceset.add(face)
+            simplex = self.simplices[i]
+            num_nodes = len(simplex)
+            while num_nodes >= 0:
+                simplices |= {node for node in combinations(simplex, num_nodes)}
+                num_nodes -= 1
 
-                num_of_nodes -= 1
+        # print(simplices)
+        return simplices
 
-        return faceset
+    def k_chain_group(self, k):
+        """Extract the kth chain group C_{k}
 
-    def n_faces(self, n):
-        return [face for face in self.face_set if len(face) == n+1]
+        Parameters
+        ----------
+        k: int
 
-    def boundary_operator(self, i):
-        source_simplices = self.n_faces(i)
-        target_simplices = self.n_faces(i - 1)
 
-        if not target_simplices:
-            matrix = dok_matrix((1, len(source_simplices)), dtype=np.float32)
-            matrix[0, 0:len(source_simplices)] = 1
+        Returns
+        -------
+        list
+
+        """
+        return [simplex for simplex in self.simplex_set if len(simplex) == k+1]
+
+    def boundary_operator(self, k):
+        """Compute the coefficients of the simplices
+
+        Parameters
+        ----------
+        k: int
+
+
+        Returns
+        -------
+        matrix: dok_matrix
+
+        """
+        columns = self.k_chain_group(k)
+        rows = self.k_chain_group(k-1)
+
+        if not rows: # not target_simplices:
+            matrix = dok_matrix((1, len(columns)))
+            matrix[0, 0:len(columns)] = 1
         else:
-            source_simplices_dict = {source_simplice: j for j, source_simplice in enumerate(source_simplices)}
-            target_simplices_dict = {target_simplice: k for k, target_simplice in enumerate(target_simplices)}
 
-            matrix = dok_matrix((len(target_simplices), len(source_simplices)), dtype=np.float32)
-            for source_simplex in source_simplices:
-                for a, _ in enumerate(source_simplex):
-                    target_simplex = source_simplex[:a] + source_simplex[(a+1):]
-                    i = target_simplices_dict[target_simplex]
-                    j = source_simplices_dict[source_simplex]
-                    matrix[i, j] = -1 if a % 2 == 1 else 1
+            # len(rows) = m_{k}, i.e., the order of the basis that generates
+            # C_{k}
+            # len(columns) = m_{k-1}, i.e., the order of the basis that
+            # generates C_{k-1}
+            matrix = dok_matrix((len(rows), len(columns)), dtype=np.float32)
+
+            # Create "labels" for the columns
+            column_labels = {simplex: j for j, simplex in enumerate(columns)}
+
+            # Create "labels" for the rows
+            row_labels = {simplex: i for i, simplex in enumerate(rows)}
+
+            for column in columns:
+                for i, _ in enumerate(column):
+
+                    # By the definition of the boundary operator, the current
+                    # iteration should have v_{i} removed from the sequence
+                    sequence = column[:i] + column[(i+1):]
+
+                    row = row_labels[sequence]
+                    col = column_labels[column]
+                    matrix[row, col] = -1 if i % 2 == 1 else 1
 
         return matrix
 
     # TODO: Figure out why ValueError exception was needed
-    def betti_number(self, i):
-        boundop_i = self.boundary_operator(i)
-        boundop_ip1 = self.boundary_operator(i+1)
+    def betti_number(self, k):
 
-        if i == 0:
-            boundop_i_rank = 0
+        # The matrix, M_{k}
+        matrix_k = self.boundary_operator(k)
+
+        # The matrix, M_{k+1}
+        matrix_kpp = self.boundary_operator(k+1)
+
+        if k == 0:
+            rank_m_k = 0
         else:
             try:
-                boundop_i_rank = np.linalg.matrix_rank(boundop_i.toarray())
+                rank_m_k = np.linalg.matrix_rank(matrix_k.toarray())
             except (np.linalg.LinAlgError, ValueError):
-                boundop_i_rank = boundop_i.shape[1]
+                rank_m_k = matrix_k.shape[1]
         try:
-            boundop_ip1_rank = np.linalg.matrix_rank(boundop_ip1.toarray())
+            rank_m_kpp = np.linalg.matrix_rank(matrix_kpp.toarray())
         except (np.linalg.LinAlgError, ValueError):
-            boundop_ip1_rank = boundop_ip1.shape[1]
+            rank_m_kpp = matrix_kpp.shape[1]
 
-        return (boundop_i.shape[1] - boundop_i_rank) - boundop_ip1_rank
+        return (matrix_k.shape[1] - rank_m_k) - rank_m_kpp
 
 
 class VietorisRipsComplex(SimplicialComplex):
@@ -104,13 +140,15 @@ class VietorisRipsComplex(SimplicialComplex):
     def construct_network(self, positions):
         """Builds a NetworkX graph from datapoint positions
 
-        Args:
-            positions: list
-                A list of 2-tuples, where each 2-tuple represents a datapoint.
+        Parameters
+        ----------
+        positions: list
+            A list of 2-tuples, where each 2-tuple represents a datapoint.
 
-        Returns:
-            graph: NetworkX Graph
-                A graph of isolate nodes representing the datapoint positions.
+        Returns
+        -------
+        graph: NetworkX Graph
+            A graph of isolate nodes representing the datapoint positions.
         """
         graph = nx.Graph()
         nodes = [node for node, _ in enumerate(positions)]
@@ -129,10 +167,4 @@ class VietorisRipsComplex(SimplicialComplex):
 
     # TODO: figure out whether we need maximal cliques or all cliques
     def update_simplices(self):
-        self.import_simplices(nx.find_cliques(self.network))
-
-
-# cpdef bint nodes_touching(double x1, double y1, double x2, double y2, double r1, double r2):
-#    """Checks if two nodes touch or intersect one another
-#    """
-#    return (r1 - r2)**2 <= (x1 - x2)**2 + (y1 - y2)**2 <= (r1 + r2)**2
+        self.import_simplices(nx.enumerate_all_cliques(self.network))

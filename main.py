@@ -10,7 +10,6 @@ __email__ = "sy2685@columbia.edu"
 
 import sys
 import itertools
-import multiprocessing
 
 from PyQt5 import QtCore, QtGui
 from PyQt5.QtWidgets import QApplication, QHBoxLayout, QLabel, QSizePolicy, QSlider, QSpacerItem, QVBoxLayout, QWidget
@@ -59,7 +58,7 @@ class Widget(QWidget):
     def __init__(self, positions, parent=None):
         super(Widget, self).__init__(parent=parent)
         p = self.palette()
-        p.setColor(self.backgroundRole(), QtGui.QColor(80, 80, 80))
+        p.setColor(self.backgroundRole(), QtGui.QColor(100, 100, 100))
         self.setPalette(p)
 
         self.vertical_layout = QVBoxLayout(self)
@@ -89,7 +88,6 @@ class Widget(QWidget):
         self.communicate.update_simplices.connect(self.update_simplices)
         self.w1.slider.valueChanged.connect(self.update_graph)
 
-        # self.pool = multiprocessing.Pool(processes=3)
         self.update_graph(1)
 
     def update_simplices(self):
@@ -99,10 +97,11 @@ class Widget(QWidget):
     def update_graph(self, value):
         """Update the graph when the value of the slider changes
 
-        Args:
-            value: int
-                The slider value/position that represents the diameter of the
-                perimeter nodes.
+        Parameters
+        ----------
+        value: int
+            The slider value/position that represents the diameter of the
+            perimeter nodes.
         """
         pos = list(self.v_rips_complex.pos_to_node.keys())
 
@@ -131,7 +130,6 @@ class Widget(QWidget):
         else:
             self.graph_item.setData(pos=pos, pen=self.line_pen, size=sizes, symbol=self.symbols*2, pxMode=False, symbolBrush=self.brushes)
 
-        # betti_nums = self.pool.map(self.v_rips_complex.betti_number, range(3))
         betti_nums = [self.v_rips_complex.betti_number(i) for i in range(3)]
         print(betti_nums, file=sys.stderr)
 
@@ -141,18 +139,20 @@ def points_on_circle(radius, size=10):
 
     NOTE: If duplicate points are generated, they will not be included.
 
-    Args:
-        radius: int
-            The radius of the circle of interest.
+    Parameters
+    ----------
+    radius: int
+        The radius of the circle of interest.
 
-        size: int, optional, default: 10
-            The amount of points to randomly draw from the circle.
-            NOTE: the length of the generated set of points may be less than
-            size since duplicates are not allowed in sets.
+    size: int, optional, default: 10
+        The amount of points to randomly draw from the circle.
+        NOTE: the length of the generated set of points may be less than
+        size since duplicates are not allowed in sets.
 
-    Returns:
-        points: set
-            A set of points on a circle of the given radius.
+    Returns
+    -------
+    points: set
+        A set of points on a circle of the given radius.
     """
     angles = [np.random.uniform(0, 2*np.pi) for _ in range(size)]
     points = {(round(radius * np.cos(theta)), round(radius * np.sin(theta))) for theta in angles}

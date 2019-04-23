@@ -38,7 +38,7 @@ class Slider(QWidget):
 
         self.slider = QSlider(self)
         self.slider.setOrientation(QtCore.Qt.Horizontal)
-        self.slider.setMaximum(500)
+        self.slider.setMaximum(200)
 
         self.horizontalLayout.addWidget(self.slider)
         spacerItem1 = QSpacerItem(0, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
@@ -228,21 +228,13 @@ def points_on_circle(radius, size=10):
     points = {(round(radius * np.cos(theta)), round(radius * np.sin(theta))) for theta in angles}
     return points
 
-def points_on_torus(radius, tube_radius, size=10):
+def points_on_torus(size=10):
     """Draws random points from the circumferences of the two circles of a torus
-
-    xyz=(c+acosθ)cosϕ=(c+acosθ)sinϕ=asinθ
 
     NOTE: If duplicate points are generated, they will not be included.
 
     Parameters
     ----------
-    radius: int
-        The radius of the first circle of the torus of interest.
-
-    tube_radius: int
-        The radius of the second circle (tube) of the torus of interest.
-
     size: int, optional, default: 10
         The amount of points to randomly draw from the circle.
         NOTE: the length of the generated set of points may be less than
@@ -251,30 +243,12 @@ def points_on_torus(radius, tube_radius, size=10):
     Returns
     -------
     points: set
-        A set of points on a torus of the given radii
+        A set of points on a torus of the given radii, coordinates represented by two angles
     """
     angles1 = [np.random.uniform(0, 2*np.pi) for _ in range(size)]
     angles2 = [np.random.uniform(0, 2*np.pi) for _ in range(size)]
-    
-    points_x = [round((tube_radius + radius * np.cos(theta)) * np.cos(phi)) 
-                for theta, phi in zip(angles1, angles2)]
-    points_x = [int(x + abs(min(points_x))) for x in points_x]
-    print(points_x)
-    points_y = [round((tube_radius + radius * np.cos(theta)) * np.sin(phi))
-                for theta, phi in zip(angles1, angles2)]
-    points_y = [int(y + abs(min(points_y))) for y in points_y]
-    print(points_y)
-    
-    points_new_x = apply_cantor_pairing(points_x, points_y)
 
-#    points = {(x, round(radius * np.sin(theta))) for x, theta in zip(points_new_x, angles1)} 
-    
-    points_z = [round(radius * np.sin(theta)) for theta in angles1]
-    points_z = [int(z + abs(min(points_z))) for z in points_z]
-
-    points_new_y = apply_cantor_pairing(points_y, points_z)
-
-    points = {(x,y) for x,y in zip(points_new_x, points_new_y)}
+    points = {(phi, theta) for phi, theta in zip(angles1, angles2)}
 
     return points
 
@@ -286,7 +260,7 @@ def main():
 
     # Generate datapoints
     #datapoints = points_on_circle(10, size=15)
-    datapoints = points_on_torus(10, 5, size=100)
+    datapoints = points_on_torus(size=20)
     print("amount of points generated: {}".format(len(datapoints)), file=sys.stderr)
     # datapoints = [[np.random.randint(0, 50), np.random.randint(0, 50)] for _ in range(10)]
 

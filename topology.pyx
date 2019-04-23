@@ -23,40 +23,25 @@ class SimplicialComplex:
 
     def import_simplices(self, simplices=[]):
         self.simplices = [tuple(sorted(simplex)) for simplex in simplices]
-        self.simplex_set = self.faces()
-
-    # FIXME: this is ugly and inefficient
-    def faces(self):
-        cdef int i
-        cdef int num_nodes
-        cdef int simplices_len = len(self.simplices)
-
-        simplices = set()
-
-        for i in range(simplices_len):
-            simplex = self.simplices[i]
-            num_nodes = len(simplex)
-            while num_nodes >= 0:
-                simplices |= {node for node in combinations(simplex, num_nodes)}
-                num_nodes -= 1
-
-        # print(simplices)
-        return simplices
+        self.simplices.sort()
 
     def k_chain_group(self, k):
         """Extract the kth chain group C_{k}
 
+        For example, `C_{2} = <[1 2 3]>`
+
         Parameters
         ----------
         k: int
-
+            The designation of the chain group.
 
         Returns
         -------
-        list
+        list:
+            The simplices of size k+1
 
         """
-        return [simplex for simplex in self.simplex_set if len(simplex) == k+1]
+        return [simplex for simplex in self.simplices if len(simplex) == k+1]
 
     def boundary_operator(self, k):
         """Compute the coefficients of the simplices
@@ -125,7 +110,8 @@ class SimplicialComplex:
         except (np.linalg.LinAlgError, ValueError):
             rank_m_kpp = matrix_kpp.shape[1]
 
-        return (matrix_k.shape[1] - rank_m_k) - rank_m_kpp
+        nullity_m_k = matrix_k.shape[1] - rank_m_k
+        return nullity_m_k - rank_m_kpp
 
 
 class VietorisRipsComplex(SimplicialComplex):
@@ -165,6 +151,5 @@ class VietorisRipsComplex(SimplicialComplex):
         """
         self.network.remove_edge(node_x, node_y)
 
-    # TODO: figure out whether we need maximal cliques or all cliques
     def update_simplices(self):
         self.import_simplices(nx.enumerate_all_cliques(self.network))

@@ -10,14 +10,15 @@ __email__ = "sy2685@columbia.edu"
 
 import sys
 import itertools
+from concurrent import futures
 
+import numpy as np
+import pyqtgraph as pg
 from PyQt5 import QtCore, QtGui
 from PyQt5.QtWidgets import QApplication, QHBoxLayout, QLabel, QSizePolicy, QSlider, QSpacerItem, QVBoxLayout, QWidget
-import pyqtgraph as pg
-import numpy as np
 
-from topology import VietorisRipsComplex
 from nodes import nodes_touching
+from topology import VietorisRipsComplex
 from experiments import points_on_circle
 
 
@@ -89,7 +90,7 @@ class Widget(QWidget):
         self.communicate.update_simplices.connect(self.update_simplices)
         self.eps_slider.slider.valueChanged.connect(self.update_graph)
 
-        self.update_graph(1)
+        self.update_graph(0)
 
     def update_simplices(self):
         self.v_rips_complex.update_simplices()
@@ -105,11 +106,12 @@ class Widget(QWidget):
             perimeter nodes.
         """
         pos = list(self.v_rips_complex.pos_to_node.keys())
+        value *= 0.1
 
-        perim_node_sizes = [value * 0.1] * len(pos)
+        perim_node_sizes = [value] * len(pos)
         sizes = self.node_sizes + perim_node_sizes
 
-        radius = (value * 0.1) * 0.5
+        radius = value * 0.5
         for pos1, pos2 in itertools.combinations(pos, 2):
             node1 = self.v_rips_complex.pos_to_node[pos1]
             node2 = self.v_rips_complex.pos_to_node[pos2]
@@ -132,12 +134,21 @@ class Widget(QWidget):
             self.graph_item.setData(pos=pos, pen=self.line_pen, size=sizes, symbol=self.symbols*2, pxMode=False, symbolBrush=self.brushes)
 
         betti_nums = [self.v_rips_complex.betti_number(i) for i in range(3)]
-        print(betti_nums, file=sys.stderr)
 
+        with futures.ThreadPoolExecutor(max_workers=1) as executor:
+            executor.submit(write_to_file, value, *betti_nums)
+
+        # print(betti_nums, file=sys.stderr)
+
+
+def write_to_file(B_0, B_1, B_2, value):
+    """Writes the Betti numbers and epsilon value to a CSV file
+    """
+    with open("betti.txt", 'a') as data_file:
+        data_file.write("{}, {}, {}, {}\n".format(B_0, B_1, B_2, value))
 
 
 def main():
-    # circle example with GUI
     """Starts the GUI with some test datapoints"""
     pg.setConfigOption("background", 'w')
     pg.setConfigOption("foreground", 'k')
@@ -147,8 +158,8 @@ def main():
     print("amount of points generated: {}".format(len(datapoints)), file=sys.stderr)
 
     app = QApplication(sys.argv)
-    w = Widget(datapoints)
-    w.show()
+    widget = Widget(datapoints)
+    widget.show()
     sys.exit(app.exec_())
 
 

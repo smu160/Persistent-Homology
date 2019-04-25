@@ -3,4 +3,4 @@ from Cython.Build import cythonize
 
 if __name__ == "__main__":
 
-    setup(name="topology", ext_modules=cythonize("*.pyx"))
+    setup(name="homology", ext_modules=cythonize("*.pyx"))

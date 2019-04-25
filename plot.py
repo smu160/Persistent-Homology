@@ -8,6 +8,8 @@ __license__ = "GPL"
 __maintainer__ = "Saveliy Yusufov"
 __email__ = "sy2685@columbia.edu"
 
+import sys
+
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -59,5 +61,11 @@ def plot_barcode(betti_nums):
     plt.savefig("barcode.png", format="png", dpi=600)
 
 
+def main():
+    filename = sys.argv[1]
+    dataframe = read_data_file(filename)
+    plot_barcode(dataframe)
+
+
 if __name__ == "__main__":
-    pass
+    main()

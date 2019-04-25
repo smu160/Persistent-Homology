@@ -39,7 +39,6 @@ class SimplicialComplex:
         -------
         list:
             The simplices of size k+1
-
         """
         return [simplex for simplex in self.simplices if len(simplex) == k+1]
 
@@ -129,7 +128,7 @@ class VietorisRipsComplex(SimplicialComplex):
         Parameters
         ----------
         positions: list
-            A list of 2-tuples, where each 2-tuple represents a datapoint.
+            A list of tuples, where each tuple represents a datapoint.
 
         Returns
         -------

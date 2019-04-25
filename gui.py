@@ -18,8 +18,8 @@ from PyQt5 import QtCore, QtGui
 from PyQt5.QtWidgets import QApplication, QHBoxLayout, QLabel, QSizePolicy, QSlider, QSpacerItem, QVBoxLayout, QWidget
 
 from nodes import nodes_touching
-from topology import VietorisRipsComplex
-from experiments import points_on_circle
+from homology import VietorisRipsComplex
+from experiments import points_on_circle, write_to_file
 
 
 class Communicate(QtCore.QObject):
@@ -141,27 +141,18 @@ class Widget(QWidget):
         # print(betti_nums, file=sys.stderr)
 
 
-def write_to_file(B_0, B_1, B_2, value):
-    """Writes the Betti numbers and epsilon value to a CSV file
-    """
-    with open("betti.txt", 'a') as data_file:
-        data_file.write("{}, {}, {}, {}\n".format(B_0, B_1, B_2, value))
-
-
 def main():
     """Starts the GUI with some test datapoints"""
     pg.setConfigOption("background", 'w')
     pg.setConfigOption("foreground", 'k')
 
-    # Generate datapoints
-    datapoints = points_on_circle(10, size=15)
-    print("amount of points generated: {}".format(len(datapoints)), file=sys.stderr)
+    # Sample datapoints from a circle
+    datapoints = points_on_circle(12, size=20)
 
     app = QApplication(sys.argv)
     widget = Widget(datapoints)
     widget.show()
     sys.exit(app.exec_())
-
 
 
 if __name__ == '__main__':

@@ -18,6 +18,7 @@ import numpy as np
 
 from topology import VietorisRipsComplex
 from nodes import nodes_touching
+from experiments import points_on_circle
 
 
 class Communicate(QtCore.QObject):
@@ -134,72 +135,22 @@ class Widget(QWidget):
         print(betti_nums, file=sys.stderr)
 
 
-def points_on_circle(radius, size=10):
-    """Draws random points from the circumference of a circle
-
-    NOTE: If duplicate points are generated, they will not be included.
-
-    Parameters
-    ----------
-    radius: int
-        The radius of the circle of interest.
-
-    size: int, optional, default: 10
-        The amount of points to randomly draw from the circle.
-        NOTE: the length of the generated set of points may be less than
-        size since duplicates are not allowed in sets.
-
-    Returns
-    -------
-    points: set
-        A set of points on a circle of the given radius.
-    """
-    angles = [np.random.uniform(0, 2*np.pi) for _ in range(size)]
-    points = {(round(radius * np.cos(theta)), round(radius * np.sin(theta))) for theta in angles}
-    return points
-
-
-#TODO: Need to use generated angles to parameterize torus
-def points_on_torus(size=10):
-    """Draws random points from the circumferences of the two circles of a torus
-
-    NOTE: If duplicate points are generated, they will not be included.
-
-    Parameters
-    ----------
-    size: int, optional, default: 10
-        The amount of points to randomly draw from the circle.
-        NOTE: the length of the generated set of points may be less than
-        size since duplicates are not allowed in sets.
-
-    Returns
-    -------
-    points: set
-        A set of points on a torus of the given radii, coordinates represented
-        by two angles.
-    """
-    angles1 = [np.random.uniform(0, 2*np.pi) for _ in range(size)]
-    angles2 = [np.random.uniform(0, 2*np.pi) for _ in range(size)]
-
-    points = {(phi, theta) for phi, theta in zip(angles1, angles2)}
-    return points
-
 
 def main():
+    # circle example with GUI
     """Starts the GUI with some test datapoints"""
     pg.setConfigOption("background", 'w')
     pg.setConfigOption("foreground", 'k')
 
     # Generate datapoints
-    # datapoints = points_on_torus(size=30)
     datapoints = points_on_circle(10, size=15)
-    # datapoints = points_on_torus(size=20)
     print("amount of points generated: {}".format(len(datapoints)), file=sys.stderr)
 
     app = QApplication(sys.argv)
     w = Widget(datapoints)
     w.show()
     sys.exit(app.exec_())
+
 
 
 if __name__ == '__main__':

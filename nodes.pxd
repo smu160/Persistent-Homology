@@ -1,1 +1,2 @@
 cdef bint c_nodes_touching(double x1, double y1, double x2, double y2, double r1, double r2)
+cdef bint c_nodes_touching_3d(double x1, double y1, double z1, double x2, double y2, double z2, double r1, double r2)

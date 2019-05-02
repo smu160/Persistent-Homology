@@ -18,7 +18,7 @@ cd Persistent_Homology
 conda env create -f environment.yml
 conda activate persistent_homology
 python setup.py build_ext --inplace
-python main.py
+python gui.py
 ```
 
 ## Authors

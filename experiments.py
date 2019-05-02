@@ -189,16 +189,16 @@ def write_to_file(B_0, B_1, B_2, value):
 
 
 def main():
-    # circle example --> see main.py
+    """Run some experiments... yay..."""
 
     # torus example
-    datapoints = points_on_torus(15, 8, size=32)
+    datapoints = points_on_torus(20, 15, size=30)
     print("amount of points generated: {}".format(len(datapoints)), file=sys.stderr)
     # print(datapoints)
 
     v_rips_complex = VietorisRipsComplex(datapoints)
 
-    for epsilon in np.arange(0, 300, 0.5):
+    for epsilon in np.arange(0, 400):
         update_complex(v_rips_complex, epsilon)
 
     # small circle vs. 2 large circles example

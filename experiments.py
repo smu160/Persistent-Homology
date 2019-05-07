@@ -11,12 +11,33 @@ __email__ = "sy2685@columbia.edu"
 
 import sys
 import itertools
-from concurrent import futures
+import threading
+from multiprocessing import Queue
 
 import numpy as np
 
 from nodes import nodes_touching_3d
 from homology import VietorisRipsComplex
+
+
+def circle_point(radius, theta):
+    """Generates a point on a circle using polar coordinates
+
+    Parameters
+    ----------
+    radius: int
+        The radius of the circle of interest.
+
+    theta: float
+        The angle from the pole.
+
+    Returns
+    -------
+    point: tuple
+        The x, y coordinates of a point on the circle of the given radius.
+    """
+    point = ((round(radius * np.cos(theta)), round(radius * np.sin(theta))))
+    return point
 
 
 def points_on_circle(radius, size=10):
@@ -40,7 +61,7 @@ def points_on_circle(radius, size=10):
         A set of points on a circle of the given radius.
     """
     angles = [np.random.uniform(0, 2*np.pi) for _ in range(size)]
-    points = {(round(radius * np.cos(theta)), round(radius * np.sin(theta))) for theta in angles}
+    points = {circle_point(radius, theta) for theta in angles}
     return points
 
 
@@ -142,7 +163,7 @@ def points_on_sphere(radius, size=10):
     return points
 
 
-def update_complex(v_rips_complex, value):
+def update_complex(v_rips_complex, value, queue):
     """Update as the value of epsilon changes
 
     Parameters
@@ -175,10 +196,20 @@ def update_complex(v_rips_complex, value):
 
     betti_nums = [v_rips_complex.betti_number(i) for i in range(3)]
 
-    with futures.ThreadPoolExecutor(max_workers=1) as executor:
-        executor.submit(write_to_file, value, *betti_nums)
+    queue.put((value, *betti_nums))
 
-    # print("{}: {}".format(round(value, 1), betti_nums), file=sys.stderr)
+
+def listener(queue):
+    """listens for messages on the q, writes to file"""
+    print("Now listening for queue", file=sys.stderr)
+    f = open("results.txt", 'w')
+
+    while True:
+        value = queue.get()
+        f.write("{}, {}, {}, {}\n".format(*value))
+        f.flush()
+
+    f.close()
 
 
 def write_to_file(B_0, B_1, B_2, value):
@@ -194,12 +225,15 @@ def main():
     # torus example
     datapoints = points_on_torus(20, 15, size=30)
     print("amount of points generated: {}".format(len(datapoints)), file=sys.stderr)
-    # print(datapoints)
+
+    queue = Queue()
+    listener_thread = threading.Thread(target=listener, args=(queue,))
+    listener_thread.daemon = True
+    listener_thread.start()
 
     v_rips_complex = VietorisRipsComplex(datapoints)
 
-    for epsilon in np.arange(0, 400):
-        update_complex(v_rips_complex, epsilon)
+    any(update_complex(v_rips_complex, epsilon, queue) for epsilon in np.arange(0, 400))
 
     # small circle vs. 2 large circles example
     # datapoints = points_on_circle(5, size=15)
